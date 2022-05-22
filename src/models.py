@@ -64,10 +64,8 @@ class Conv_autoencoder(nn.Module):
 
     def forward(self, x):
         # print(x.shape)
-        x = x.transpose(-1, -2)
         z = self.encoder(x)
         # print(x.shape)
         x = self.decoder(z)
         # print(x.shape)
-        x = x.transpose(-1, -2)
         return z, x

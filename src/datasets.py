@@ -30,6 +30,6 @@ def collate_fn_fast(batch):
     ones = [torch.ones_like(i) for i in feats]
     # return feats, txts
     return (
-        pad_sequence(feats, batch_first=True), 
-        pad_sequence(ones, batch_first=True), 
+        pad_sequence(feats, batch_first=True).transpose(-1, -2), 
+        pad_sequence(ones, batch_first=True).transpose(-1, -2), 
         txts)
