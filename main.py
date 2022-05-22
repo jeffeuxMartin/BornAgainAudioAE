@@ -1,39 +1,19 @@
 #!python
-
 # region
-BSZ = 32
-LR = 2e-4
-WORKERS = 8
-TOTAL = -1
-EPOCHS = 10
-FeatBSZ = 2048
-verbose = False
-
-import sys
-exec(sys.argv[1] if len(sys.argv) > 1 else '')
-print(f"{BSZ = }"
-' 'f"{LR = }"
-' 'f"{WORKERS = }"
-# ' 'f"{FeatBSZ = }"
-)
-print()
-# endregion
-# region
+"ssh://lab531/storage/LabJob/Projects/RemakeAudioSegs/BornAgainAudioAE/prescripts.py"; BSZ=None;LR=None;WORKERS=None;TOTAL=None;EPOCHS=None;FeatBSZ=None;verbose=None;f = open('prescripts.py'); exec(f.read()); f.close()
 from pathlib import Path
-import torch
-# import s3prl.hub as hub
 import pickle as pkl
 import glob
+import time
 
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
 
-import torch
-import torch.nn as nn
+import torch, torch.nn as nn
 import torchaudio
 from torchaudio.datasets.librispeech import LIBRISPEECH
-import time
+import s3prl.hub as hub
 
 from src.datasets import MyDataset
 from src.datasets import collate_fn_fast
@@ -41,7 +21,7 @@ from src.models import Conv_autoencoder
 # endregion
 
 SAMPLE_RATE = 16_000
-device = 'cuda' # or cpu
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 dst = MyDataset(LIBRISPEECH(
     root="imppaths/corpus", url="train-clean-100"), 
@@ -56,35 +36,33 @@ loader = torch.utils.data.DataLoader(
 
 model = Conv_autoencoder('spec').to(device)
 criterion = nn.MSELoss()
-opt = torch.optim.Adam(params=model.parameters(), lr=LR)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=LR)
 
-tqdmTOTAL = len(loader) if TOTAL == -1 else TOTAL
 for epoch in range(EPOCHS):
     model.train()
     total_loss = 0.
-    pbar = tqdm(loader, total=tqdmTOTAL)
-    for bidx, batch in enumerate(pbar):
-        if bidx >= tqdmTOTAL: break
-        # if clock > 3: break
-        opt.zero_grad()
-        # x, *_ = batch
-        x, a, t = batch
-        x = x.to(device)
-        a = a.to(device)
-        latent, recon_x = model(x)
-        # print('\033[0;35m'f"{x.shape = }"'\033[0m')
-        # print('\033[0;35m'f"{recon_x.shape = }"'\033[0m')
-        xr = x[..., :recon_x.size(-2), :]
-        ar = a[..., :recon_x.size(-2), :]
+    for batch_idx, batch in enumerate(
+        pbar := tqdm(loader, total=(
+            tqdmTOTAL := (len(loader) 
+                          if TOTAL == -1 else TOTAL)))
+      ):
+        if batch_idx >= tqdmTOTAL: break
+        optimizer.zero_grad()
+        input_x, attns_x, texts = batch
+        latent, recon_x = model(input_x.to(device))
+        if verbose: print('\033[0;35m'f"{input_x.shape = }"'\033[0m')
+        if verbose: print('\033[0;35m'f"{recon_x.shape = }"'\033[0m')
+        x_resized = input_x[..., :recon_x.size(-2), :]
+        a_resized = attns_x[..., :recon_x.size(-2), :]
         loss = criterion(
-            recon_x * ar,
-            xr * ar,
+            recon_x * a_resized,
+            x_resized * a_resized,
         )
         loss.backward()
-        opt.step()
-        total_loss += loss.item() * len(x)
-        pbar.set_postfix({
-            'loss': "[%9.3lf]" % round(loss.item(), 3)})  # FIXME
-        # clock += 1
-        # break
-    print(total_loss / len(loader.dataset))
+        optimizer.step()
+        total_loss += (batch_loss := loss.item()) * len(input_x)
+        pbar.set_postfix({'batch_loss': "%9.3lf" % round(batch_loss, 3)})  # FIXME
+    print(total_loss / (
+        effective_total_size := min(
+            batch_idx * BSZ + BSZ, 
+            len(loader.dataset))))
