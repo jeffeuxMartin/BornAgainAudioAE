@@ -1,6 +1,6 @@
 #!python
 # region
-"ssh://lab531/storage/LabJob/Projects/RemakeAudioSegs/BornAgainAudioAE/prescripts.py"; BSZ=None;LR=None;WORKERS=None;TOTAL=None;EPOCHS=None;FeatBSZ=None;verbose=None;f = open('prescripts.py'); exec(f.read()); f.close()
+"ssh://lab531/storage/LabJob/Projects/RemakeAudioSegs/BornAgainAudioAE/prescripts.py"; BSZ=None;LR=None;WORKERS=None;TOTAL=None;EPOCHS=None;FeatBSZ=None;verbose=None;FILEROOT=__import__("os").path.dirname(__import__("os").path.realpath(__file__)); f = open(FILEROOT + '/prescripts.py'); exec(f.read()); f.close()
 from pathlib import Path
 import pickle as pkl
 import glob
@@ -24,15 +24,15 @@ SAMPLE_RATE = 16_000
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 dst = MyDataset(LIBRISPEECH(
-    root="imppaths/corpus", url="train-clean-100"), 
-    "imppaths/spectrograms")
+    root=FILEROOT + "/""imppaths/corpus", url="train-clean-100"), 
+    FILEROOT + "/""imppaths/spectrograms")
 
 loader = torch.utils.data.DataLoader(
     dataset=dst,
     batch_size=BSZ,
     collate_fn=collate_fn_fast,
     num_workers=WORKERS,
-)
+); assert len(loader) > 0, 'Empty dataloader?'
 
 model = Conv_autoencoder('spec').to(device)
 criterion = nn.MSELoss()
@@ -52,8 +52,8 @@ for epoch in range(EPOCHS):
         latent, recon_x = model(input_x.to(device))
         if verbose: print('\033[0;35m'f"{input_x.shape = }"'\033[0m')
         if verbose: print('\033[0;35m'f"{recon_x.shape = }"'\033[0m')
-        x_resized = input_x[..., :recon_x.size(-2), :]
-        a_resized = attns_x[..., :recon_x.size(-2), :]
+        x_resized = input_x[..., :recon_x.size(-2), :].to(device)
+        a_resized = attns_x[..., :recon_x.size(-2), :].to(device)
         loss = criterion(
             recon_x * a_resized,
             x_resized * a_resized,
@@ -64,5 +64,5 @@ for epoch in range(EPOCHS):
         pbar.set_postfix({'batch_loss': "%9.3lf" % round(batch_loss, 3)})  # FIXME
     print(total_loss / (
         effective_total_size := min(
-            batch_idx * BSZ + BSZ, 
+            tqdmTOTAL * BSZ + BSZ, 
             len(loader.dataset))))
