@@ -43,8 +43,8 @@ for epoch in range(EPOCHS):
         latent, recon_x = model(input_x.to(device))
         if verbose: print('\033[0;35m'f"{input_x.shape = }"'\033[0m')
         if verbose: print('\033[0;35m'f"{recon_x.shape = }"'\033[0m')
-        x_resized = input_x[..., :recon_x.size(-2), :].to(device)
-        a_resized = attns_x[..., :recon_x.size(-2), :].to(device)
+        x_resized = input_x[..., :recon_x.size(-1)].to(device)
+        a_resized = attns_x[..., :recon_x.size(-1)].to(device)
         loss = criterion(
             recon_x * a_resized,
             x_resized * a_resized,
