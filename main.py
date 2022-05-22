@@ -1,24 +1,15 @@
 #!python
-# region
-"ssh://lab531/storage/LabJob/Projects/RemakeAudioSegs/BornAgainAudioAE/prescripts.py"; BSZ=None;LR=None;WORKERS=None;TOTAL=None;EPOCHS=None;FeatBSZ=None;verbose=None;FILEROOT=__import__("os").path.dirname(__import__("os").path.realpath(__file__)); f = open(FILEROOT + '/prescripts.py'); exec(f.read()); f.close()
-from pathlib import Path
-import pickle as pkl
-import glob
-import time
-
-from tqdm import tqdm
-import numpy as np
-import pandas as pd
-
-import torch, torch.nn as nn
-import torchaudio
+# region IMPORT --------------------------------------
+if "preload": 
+    "ssh://lab531/storage/LabJob/Projects/RemakeAudioSegs/BornAgainAudioAE/prescripts.py"; BSZ = None; LR = None; WORKERS = None; TOTAL = None; EPOCHS = None; FeatBSZ = None; verbose = None; FILEROOT = __import__("os").path.dirname(__import__("os").path.realpath(__file__)); f = open(FILEROOT + '/prescripts.py'); exec(f.read()); f.close()
+from pathlib import Path; import pickle as pkl, glob, time
+from tqdm import tqdm; import numpy as np; import pandas as pd
 from torchaudio.datasets.librispeech import LIBRISPEECH
-import s3prl.hub as hub
-
+import torch, torch.nn as nn, torchaudio, s3prl.hub as hub
 from src.datasets import MyDataset
 from src.datasets import collate_fn_fast
 from src.models import Conv_autoencoder
-# endregion
+# endregion ------------------------------------------
 
 SAMPLE_RATE = 16_000
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -61,7 +52,7 @@ for epoch in range(EPOCHS):
         loss.backward()
         optimizer.step()
         total_loss += (batch_loss := loss.item()) * len(input_x)
-        pbar.set_postfix({'batch_loss': "%9.3lf" % round(batch_loss, 3)})  # FIXME
+        pbar.set_postfix({'batch_loss': "[%9.3lf]" % round(batch_loss, 3)})  # FIXME
     print(total_loss / (
         effective_total_size := min(
             tqdmTOTAL * BSZ + BSZ, 
