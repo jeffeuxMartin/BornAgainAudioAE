@@ -1,18 +1,24 @@
 #!python
 
 # region
-BSZ = 320
+BSZ = 32
 LR = 2e-5
 WORKERS = 8
+FeatBSZ = 2048
 
 import sys
 exec(sys.argv[1] if len(sys.argv) > 1 else '')
-print(f"{BSZ = }"' 'f"{LR = }"' 'f"{WORKERS = }")
+print(f"{BSZ = }"
+' 'f"{LR = }"
+' 'f"{WORKERS = }"
+' 'f"{FeatBSZ = }"
+)
 print()
 
 from pathlib import Path
 import torch
 import s3prl.hub as hub
+import pickle as pkl
 
 from tqdm import tqdm
 import numpy as np
@@ -51,7 +57,7 @@ SAMPLE_RATE = 16_000
 class FeatDataset(Dataset):
     def __init__(self, dts) -> None:
         self.dts = dts
-        bsz_dts = 32
+        bsz_dts = FeatBSZ
         self.feats = []
         self.txts = []
         wavs = []
@@ -92,8 +98,17 @@ def collate_fn_slow(batch):
     
     
 # endregion
+CACHE_NAME = 'featdtst.pkl'
+if Path(CACHE_NAME).is_file():
+    with open(CACHE_NAME, 'rb') as f:
+        featdtst = pkl.load(f)
+else:
+    featdtst = FeatDataset(dataset)
+    with open(CACHE_NAME, 'wb') as f:
+        pkl.dump(featdtst, f)
+
 loader = torch.utils.data.DataLoader(
-    dataset=dataset,
+    dataset=featdtst,
     batch_size=BSZ,
     collate_fn=collate_fn,
     num_workers=WORKERS,
