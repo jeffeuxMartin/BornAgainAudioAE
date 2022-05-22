@@ -1,10 +1,10 @@
 
 # region
-BSZ = 32
+BSZ = 64
 LR = 2e-4
 WORKERS = 8
 TOTAL = -1
-EPOCHS = 10
+EPOCHS = 100
 FeatBSZ = 2048
 verbose = False
 
