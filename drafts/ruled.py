@@ -1,7 +1,7 @@
 #!python
 
 # region
-BSZ = 64
+BSZ = 32
 LR = 2e-4
 WORKERS = 8
 TOTAL = -1
@@ -56,6 +56,7 @@ dataset = (torchaudio.datasets.librispeech.LIBRISPEECH)(
     url="train-clean-100")
 
 SAMPLE_RATE = 16_000
+# endregion
 
 class FeatDataset(Dataset):
     def __init__(self, dts) -> None:
@@ -232,34 +233,7 @@ class Conv_autoencoder(nn.Module):
         return z, x
         
     
-    def old_forward(self, x):
-        x = x.transpose(-1, -2)
-        if verbose: print('\n''\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
-        x = self.relu(self.conv1(x))
-        if verbose: print('\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
-        x = self.relu(self.conv2(x))
-        if verbose: print('\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
-        x = self.relu(self.conv3(x))
-        z = x
-        if verbose: print('\033[01;33m'f"{z.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{z.shape[-1] * z.shape[-2] = }"'\033[0m')
-        y = z
-        y = self.relu(self.conv_v3(y))
-        if verbose: print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
-        y = self.relu(self.conv_v2(y))
-        if verbose: print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
-        y = self.tanh(self.conv_v1(y))
-        if verbose: print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
-        if verbose: print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
-        y = y.transpose(-1, -2)
-        
-        return z, y
-
+    
 model = Conv_autoencoder('spec')
 criterion = nn.MSELoss()
 opt = torch.optim.Adam(
@@ -299,6 +273,7 @@ for epoch in range(EPOCHS):
         pbar.set_postfix({
             'loss': "[%9.3lf]" % round(loss.item(), 3)})  # FIXME
         # clock += 1
+        break
     print(total_loss / len(loader.dataset))
 
 
