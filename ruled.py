@@ -200,11 +200,37 @@ class Conv_autoencoder(nn.Module):
             nn.ReLU(True),
             nn.Conv1d(channels, embedding_dim, 1)
         )
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose1d(embedding_dim, channels, 1),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(channels, channels, 3, 1, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(channels, channels, 3, 1, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(channels, channels, 4, 2, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(channels, channels, 3, 1, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(channels, in_channels, 3, 1, 0, bias=False),
+            # nn.BatchNorm1d(in_channels),
+            nn.Tanh(),
+        )
 
     def forward(self, x):
+        # print(x.shape)
         x = x.transpose(-1, -2)
-        x = self.encoder(x)
-        print(x.shape)
+        z = self.encoder(x)
+        # print(x.shape)
+        x = self.decoder(z)
+        # print(x.shape)
+        x = x.transpose(-1, -2)
+        return z, x
+        
     
     def old_forward(self, x):
         x = x.transpose(-1, -2)
