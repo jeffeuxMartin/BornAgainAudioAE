@@ -3,10 +3,11 @@
 # region
 BSZ = 320
 LR = 2e-5
+WORKERS = 8
 
 import sys
 exec(sys.argv[1] if len(sys.argv) > 1 else '')
-print(f"{BSZ = }"' 'f"{LR = }")
+print(f"{BSZ = }"' 'f"{LR = }"' 'f"{WORKERS = }")
 print()
 
 from pathlib import Path
@@ -59,7 +60,7 @@ loader = torch.utils.data.DataLoader(
     dataset=dataset,
     batch_size=BSZ,
     collate_fn=collate_fn,
-    num_workers=4,
+    num_workers=WORKERS,
 )
 
 class Conv_autoencoder(nn.Module):
