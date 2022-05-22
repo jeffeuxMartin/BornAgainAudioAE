@@ -37,7 +37,7 @@ config_path = s3prl_root / 's3prl/upstream/baseline/mfcc.yaml'
 extracter = getattr(hub, 
     'baseline_local')(model_config=config_path).to(device)
 
-wavs = [torch.zeros(160000, dtype=torch.float).to(device) for _ in range(16)]
+# wavs = [torch.zeros(160000, dtype=torch.float).to(device) for _ in range(16)]
 # with torch.no_grad():
 #     mfcc = extracter(wavs)["hidden_states"]
 
@@ -47,7 +47,43 @@ dataset = (torchaudio.datasets.librispeech.LIBRISPEECH)(
     url="train-clean-100")
 
 SAMPLE_RATE = 16_000
+
+class FeatDataset(Dataset):
+    def __init__(self, dts) -> None:
+        self.dts = dts
+        bsz_dts = 32
+        self.feats = []
+        self.txts = []
+        wavs = []
+        for ni, thing in enumerate(tqdm(self.dts)):
+            it, sr, txt, *_ = thing
+            self.txts.append(txt)
+            assert (sr == SAMPLE_RATE), "Sample rate different!"
+            wavs.append(it.to(device))
+            if ni % bsz_dts == bsz_dts - 1:
+                with torch.no_grad():
+                    [mfcc] = extracter(wavs)["hidden_states"]
+                    self.feats.extend(mfcc)
+                wavs = []
+        #################
+        if len(wavs) > 0:
+            with torch.no_grad():
+                [mfcc] = extracter(wavs)["hidden_states"]
+                self.feats.extend(mfcc)
+            wavs = []
+        # ~~~~~~~~~~~~~~
+
+    def __len__(self):
+        return len(self.dts)
+
+    def __getitem__(self, idx):
+        return self.feats[idx], self.txts[idx]
+        
 def collate_fn(batch):
+    feats, txts = list(zip(*batch))
+    return pad_sequence(feats, batch_first=True), txts
+
+def collate_fn_slow(batch):
     wavs, sr, txt, numa, numb, numc = list(zip(*batch))
     assert all(_sr == SAMPLE_RATE for _sr in sr), "Sample rate different!"
     with torch.no_grad():
