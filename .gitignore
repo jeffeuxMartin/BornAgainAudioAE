@@ -130,3 +130,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+imppaths
+imppaths/corpus
+imppaths/s3prl
+imppaths/spectrograms
+imppaths/spectrograms.tgz
+imppaths/corpus

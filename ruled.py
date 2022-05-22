@@ -178,8 +178,35 @@ class Conv_autoencoder(nn.Module):
         self.conv_v3 = nn.ConvTranspose1d(filts[2 + 1], filts[2], kers[2], stride=strs[2], padding=pads[2])
         self.conv_v2 = nn.ConvTranspose1d(filts[1 + 1], filts[1], kers[1], stride=strs[1], padding=pads[1])
         self.conv_v1 = nn.ConvTranspose1d(filts[0 + 1], filts[0], kers[0], stride=strs[0], padding=pads[0])
+        
+        in_channels = 128 if feattype == 'spec' else 39
+        channels = 768 if feattype == 'spec' else 39
+        embedding_dim = 64 if feattype == 'spec' else 39
+        self.encoder = nn.Sequential(
+            nn.Conv1d(in_channels, channels, 3, 1, 0, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.Conv1d(channels, channels, 3, 1, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.Conv1d(channels, channels, 4, 2, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.Conv1d(channels, channels, 3, 1, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.Conv1d(channels, channels, 3, 1, 1, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(True),
+            nn.Conv1d(channels, embedding_dim, 1)
+        )
 
     def forward(self, x):
+        x = x.transpose(-1, -2)
+        x = self.encoder(x)
+        print(x.shape)
+    
+    def old_forward(self, x):
         x = x.transpose(-1, -2)
         if verbose: print('\n''\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
         if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
