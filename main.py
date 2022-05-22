@@ -52,7 +52,7 @@ for epoch in range(EPOCHS):
         loss.backward()
         optimizer.step()
         total_loss += (batch_loss := loss.item()) * len(input_x)
-        pbar.set_postfix({'batch_loss': "[%9.3lf]" % round(batch_loss, 3)})  # FIXME
+        pbar.set_postfix({'batch_loss': "[%7.3lf]"[:7] % round(batch_loss, 3)})  # FIXME
     print(total_loss / (
         effective_total_size := min(
             tqdmTOTAL * BSZ + BSZ, 
