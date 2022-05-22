@@ -2,9 +2,12 @@
 
 # region
 BSZ = 32
-LR = 2e-5
+LR = 2e-3
 WORKERS = 8
+TOTAL = 50
+EPOCHS = 5
 FeatBSZ = 2048
+verbose = False
 
 import sys
 exec(sys.argv[1] if len(sys.argv) > 1 else '')
@@ -96,68 +99,115 @@ def collate_fn_slow(batch):
         [mfcc] = extracter(wavs)["hidden_states"]
     return mfcc, txt
     
+import glob
+class MyDataset(Dataset):
+    def __init__(self, dst, paths):
+        self.dst = dst
+        self.paths = glob.glob(f"{paths}/*.tnsr")
+        self.paths = [
+            (i.split('/')[-1], i) for i in self.paths]
+        self.paths = [(int(i.split('__')[0]), j) 
+            for i, j in self.paths]
+        self.paths.sort()
+        
+        assert all([
+            idx == num for idx, (num, item) in 
+                enumerate(self.paths)])
+    def __len__(self): return len(self.dst)
+    def __getitem__(self, idx): 
+        return (
+            self.paths[idx][-1],
+            self.dst[idx][2], 
+        )
     
-# endregion
-CACHE_NAME = 'featdtst.pkl'
-if Path(CACHE_NAME).is_file():
-    with open(CACHE_NAME, 'rb') as f:
-        featdtst = pkl.load(f)
-else:
-    featdtst = FeatDataset(dataset)
-    with open(CACHE_NAME, 'wb') as f:
-        pkl.dump(featdtst, f)
+dst = MyDataset(
+    dataset,
+    # "/storage/LabJob/Projects/RemakeAudioSegs/Upstea",
+    "imppaths/spectrograms",
+)
+
+def collate_fn_fast(batch):
+    feats, txts = list(zip(*batch))
+    feats = [torch.load(i).squeeze(0).T for i in feats]
+    ones = [torch.ones_like(i) for i in feats]
+    # return feats, txts
+    return (
+        pad_sequence(feats, batch_first=True), 
+        pad_sequence(ones, batch_first=True), 
+        txts)
 
 loader = torch.utils.data.DataLoader(
-    dataset=featdtst,
+    dataset=dst,
     batch_size=BSZ,
-    collate_fn=collate_fn,
+    collate_fn=collate_fn_fast,
     num_workers=WORKERS,
 )
 
+# endregion
+if 0:
+    CACHE_NAME = 'featdtst.pkl'
+    if Path(CACHE_NAME).is_file():
+        with open(CACHE_NAME, 'rb') as f:
+            featdtst = pkl.load(f)
+    else:
+        featdtst = FeatDataset(dataset)
+        # with open(CACHE_NAME, 'wb') as f:
+        #     pkl.dump(featdtst, f)
+
+    loader = torch.utils.data.DataLoader(
+        dataset=featdtst,
+        batch_size=BSZ,
+        collate_fn=collate_fn,
+        num_workers=WORKERS,
+    )
 class Conv_autoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, feattype='spec'):
         super().__init__()
+        if feattype == 'spec':
+            filts, kers, strs, pads = [128, 256, 512, 1024], [16, 8, 4], [8, 4, 4], [1, 1, 1]
+        elif feattype == 'mfcc':
+            filts, kers, strs, pads = [39, 128, 256, 512], [32, 16, 8], [8, 8, 4], [1, 1, 1]
         self.maxpool2d = nn.MaxPool2d((2, 2))
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         
-        self.conv1 = nn.Conv1d( 39, 128, 32, stride=8, padding=1)
-        self.conv2 = nn.Conv1d(128, 256, 16, stride=8, padding=1)
-        self.conv3 = nn.Conv1d(256, 512,  8, stride=4, padding=1)
+        self.conv1 = nn.Conv1d(filts[0], filts[0 + 1], kers[0], stride=strs[0], padding=pads[0])
+        self.conv2 = nn.Conv1d(filts[1], filts[1 + 1], kers[1], stride=strs[1], padding=pads[1])
+        self.conv3 = nn.Conv1d(filts[2], filts[2 + 1], kers[2], stride=strs[2], padding=pads[2])
         
-        self.conv_v3 = nn.ConvTranspose1d(512, 256,  8, stride=4, padding=1)
-        self.conv_v2 = nn.ConvTranspose1d(256, 128, 16, stride=8, padding=1)
-        self.conv_v1 = nn.ConvTranspose1d(128,  39, 32, stride=8, padding=1)
+        self.conv_v3 = nn.ConvTranspose1d(filts[2 + 1], filts[2], kers[2], stride=strs[2], padding=pads[2])
+        self.conv_v2 = nn.ConvTranspose1d(filts[1 + 1], filts[1], kers[1], stride=strs[1], padding=pads[1])
+        self.conv_v1 = nn.ConvTranspose1d(filts[0 + 1], filts[0], kers[0], stride=strs[0], padding=pads[0])
 
     def forward(self, x):
         x = x.transpose(-1, -2)
-        # print('\n''\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
+        if verbose: print('\n''\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
         x = self.relu(self.conv1(x))
-        # print('\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
+        if verbose: print('\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
         x = self.relu(self.conv2(x))
-        # print('\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
+        if verbose: print('\033[01;33m'f"{x.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{x.shape[-1] * x.shape[-2] = }"'\033[0m')
         x = self.relu(self.conv3(x))
         z = x
-        # print('\033[01;33m'f"{z.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{z.shape[-1] * z.shape[-2] = }"'\033[0m')
+        if verbose: print('\033[01;33m'f"{z.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{z.shape[-1] * z.shape[-2] = }"'\033[0m')
         y = z
         y = self.relu(self.conv_v3(y))
-        # print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
+        if verbose: print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
         y = self.relu(self.conv_v2(y))
-        # print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
+        if verbose: print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
         y = self.tanh(self.conv_v1(y))
-        # print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
-        # print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
+        if verbose: print('\033[01;33m'f"{y.shape = }"'\033[0m', end='\n\t')
+        if verbose: print('\033[01;32m'f"{y.shape[-1] * y.shape[-2] = }"'\033[0m')
         y = y.transpose(-1, -2)
         
         return z, y
 
-model = Conv_autoencoder()
+model = Conv_autoencoder('spec')
 criterion = nn.MSELoss()
 opt = torch.optim.Adam(
     params=model.parameters(),
@@ -168,22 +218,27 @@ device = "cuda"
 model = model.to(device)
 
 # clock = 0
-for epoch in range(10):
+tqdmTOTAL = len(loader) if TOTAL == -1 else TOTAL
+for epoch in range(EPOCHS):
     model.train()
     total_loss = 0.
-    pbar = tqdm(loader)
-    for batch in pbar:
+    pbar = tqdm(loader, total=tqdmTOTAL)
+    for bidx, batch in enumerate(pbar):
+        if bidx >= tqdmTOTAL: break
         # if clock > 3: break
         opt.zero_grad()
         # x, *_ = batch
-        x, t = batch
+        x, a, t = batch
         x = x.to(device)
+        a = a.to(device)
         latent, recon_x = model(x)
         # print('\033[0;35m'f"{x.shape = }"'\033[0m')
         # print('\033[0;35m'f"{recon_x.shape = }"'\033[0m')
+        xr = x[..., :recon_x.size(-2), :]
+        ar = a[..., :recon_x.size(-2), :]
         loss = criterion(
-            recon_x,
-            x[..., :recon_x.size(-2), :]
+            recon_x * ar,
+            xr * ar,
         )
         loss.backward()
         opt.step()
