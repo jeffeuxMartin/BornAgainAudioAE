@@ -1,11 +1,11 @@
 #!python
 
 # region
-BSZ = 32
-LR = 2e-3
+BSZ = 64
+LR = 2e-4
 WORKERS = 8
-TOTAL = 50
-EPOCHS = 5
+TOTAL = -1
+EPOCHS = 10
 FeatBSZ = 2048
 verbose = False
 
@@ -14,7 +14,7 @@ exec(sys.argv[1] if len(sys.argv) > 1 else '')
 print(f"{BSZ = }"
 ' 'f"{LR = }"
 ' 'f"{WORKERS = }"
-' 'f"{FeatBSZ = }"
+# ' 'f"{FeatBSZ = }"
 )
 print()
 
@@ -164,7 +164,7 @@ class Conv_autoencoder(nn.Module):
     def __init__(self, feattype='spec'):
         super().__init__()
         if feattype == 'spec':
-            filts, kers, strs, pads = [128, 256, 512, 1024], [16, 8, 4], [8, 4, 4], [1, 1, 1]
+            filts, kers, strs, pads = [128, 512, 1024, 2048], [8, 4, 2], [2, 2, 2], [1, 1, 1]
         elif feattype == 'mfcc':
             filts, kers, strs, pads = [39, 128, 256, 512], [32, 16, 8], [8, 8, 4], [1, 1, 1]
         self.maxpool2d = nn.MaxPool2d((2, 2))
