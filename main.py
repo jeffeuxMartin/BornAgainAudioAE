@@ -28,7 +28,7 @@ loader = torch.utils.data.DataLoader(
 model = Conv_autoencoder('spec').to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(params=model.parameters(), lr=LR)
-breakpoint()
+
 for epoch in range(EPOCHS):
     model.train()
     total_loss = 0.
