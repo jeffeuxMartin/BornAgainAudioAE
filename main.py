@@ -47,7 +47,7 @@ for epoch in range(EPOCHS):
         a_resized = attns_x[..., :recon_x.size(-1)].to(device)
         loss = criterion(
             recon_x * a_resized,
-            x_resized * ab_resized,
+            x_resized * a_resized,
         )
         loss.backward()
         optimizer.step()
