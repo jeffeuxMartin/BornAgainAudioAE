@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 
 import torch
@@ -5,6 +6,7 @@ import torch.nn as nn
 
 class WeirdAutoencoder(nn.Module):  # Conv_autoencoder
     def __init__(self, feattype='fbank'):
+        filts, kers, strs, pads = [], [], [], []
         super().__init__()
         if   feattype == 'spec':
             filts, kers, strs, pads = [128, 512, 1024, 2048], [8, 4, 2], [2, 2, 2], [1, 1, 1]
@@ -27,6 +29,17 @@ class WeirdAutoencoder(nn.Module):  # Conv_autoencoder
         in_channels   = 128 if feattype == 'spec' else (39 if feattype == 'mfcc' else 80 * 3)
         channels      = 768 if feattype == 'spec' else (39 if feattype == 'mfcc' else 360)
         embedding_dim =  64 if feattype == 'spec' else (39 if feattype == 'mfcc' else 128)
+        
+        self.encoder = nn.Sequential(
+            self.conv1, self.maxpool2d, self.relu,
+            self.conv2, self.maxpool2d, self.relu,
+            self.conv3, self.maxpool2d, self.relu,
+        )
+        self.decoder = nn.Sequential(
+            self.conv_v3, self.relu,
+            self.conv_v2, self.relu,
+            self.conv_v1, self.tanh,
+        )
 
     def forward(self, x):
         # print(x.shape)
